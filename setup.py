@@ -76,6 +76,7 @@ setup(
         'five.localsitemanager',
         'five.pt',
         'mockup',
+        'plone.api',
         'plone.app.content',
         'plone.app.contentlisting',
         'plone.app.contentmenu >= 1.1.6dev-r22380',
