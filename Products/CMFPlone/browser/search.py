@@ -18,6 +18,7 @@ _ = MessageFactory('plone')
 # We should accept both a simple space, unicode u'\u0020 but also a
 # multi-space, so called 'waji-kankaku', unicode u'\u3000'
 MULTISPACE = u'\u3000'.encode('utf-8')
+BAD_CHARS = ('?', '-', '+', '*', MULTISPACE)
 EVER = DateTime('1970-01-03')
 
 
@@ -35,6 +36,14 @@ def quote_chars(s):
 class Search(BrowserView):
 
     valid_keys = ('sort_on', 'sort_order', 'sort_limit', 'fq', 'fl', 'facet')
+
+    def munge_search_term(self, q):
+        for char in BAD_CHARS:
+            q = q.replace(char, ' ')
+        r = q.split()
+        r = " AND ".join(r)
+        r = quote_chars(r) + '*'
+        return r
 
     def results(self, query=None, batch=True, b_size=10, b_start=0,
                 use_content_listing=True):
@@ -85,7 +94,7 @@ class Search(BrowserView):
             if v and ((k in valid_keys) or k.startswith('facet.')):
                 query[k] = v
         if text:
-            query['SearchableText'] = quote_chars(text)
+            query['SearchableText'] = self.munge_search_term(text)
 
         # don't filter on created at all if we want all results
         created = query.get('created')
@@ -108,6 +117,8 @@ class Search(BrowserView):
         if 'path' not in query:
             query['path'] = getNavigationRoot(self.context)
 
+        if 'sort_order' in query and not query['sort_order']:
+            del query['sort_order']
         return query
 
     def filter_types(self, types):
@@ -189,12 +200,6 @@ class AjaxSearch(Search):
         except:
             page = 1
 
-        # form = self.request.form
-        # if 'SearchableText' in form:
-            # let's add * around for better results
-        #    if '*' not in form['SearchableText']:
-        #        form['SearchableText'] = '*' + form['SearchableText'] + '*'
-
         results = self.results(batch=False, use_content_listing=False)
         batch = Batch(results, per_page, start=(page - 1) * per_page)
 
@@ -236,9 +241,4 @@ class SortOption(object):
             q['sort_order'] = 'reverse'
 
         base_url = self.request.URL
-        # After the AJAX call the request is changed and thus the URL part of
-        # it as well. In this case we need to tweak the URL to point to have
-        # correct URLs
-        if '@@updated_search' in base_url:
-            base_url = base_url.replace('@@updated_search', '@@search')
         return base_url + '?' + make_query(q)

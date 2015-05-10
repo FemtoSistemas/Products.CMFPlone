@@ -526,7 +526,7 @@ define('pat-compat',[],function() {
     {
         Array.prototype.every = function(fun /*, thisp */)
         {
-            
+            "use strict";
 
             if (this === null)
                 throw new TypeError();
@@ -551,7 +551,7 @@ define('pat-compat',[],function() {
     // https://developer.mozilla.org/en/JavaScript/Reference/Global_Objects/Array/filter (JS 1.6)
     if (!Array.prototype.filter) {
         Array.prototype.filter = function(fun /*, thisp */) {
-            
+            "use strict";
 
             if (this === null)
                 throw new TypeError();
@@ -642,7 +642,7 @@ define('pat-compat',[],function() {
     // https://developer.mozilla.org/en/JavaScript/Reference/Global_Objects/Array/indexOf (JS 1.6)
     if (!Array.prototype.indexOf) {
         Array.prototype.indexOf = function (searchElement /*, fromIndex */ ) {
-            
+            "use strict";
             if (this === null) {
                 throw new TypeError();
             }
@@ -677,7 +677,7 @@ define('pat-compat',[],function() {
     // https://developer.mozilla.org/en/JavaScript/Reference/Global_Objects/Array/lastIndexOf (JS 1.6)
     if (!Array.prototype.lastIndexOf) {
         Array.prototype.lastIndexOf = function(searchElement /*, fromIndex*/) {
-            
+            "use strict";
 
             if (this === null)
                 throw new TypeError();
@@ -817,7 +817,7 @@ define('pat-compat',[],function() {
     {
         Array.prototype.reduceRight = function(callbackfn /*, initialValue */)
         {
-            
+            "use strict";
 
             if (this === null)
                 throw new TypeError();
@@ -871,7 +871,7 @@ define('pat-compat',[],function() {
     {
         Array.prototype.some = function(fun /*, thisp */)
         {
-            
+            "use strict";
 
             if (this === null)
                 throw new TypeError();
@@ -1316,12 +1316,12 @@ define('pat-registry',[
 
     while ((match=disable_re.exec(window.location.search)) !== null) {
         disabled[match[1]] = true;
-        log.info('Pattern disabled via url config:', match[1]);
+        log.info("Pattern disabled via url config:", match[1]);
     }
 
     while ((match=dont_catch_re.exec(window.location.search)) !== null) {
         dont_catch = true;
-        log.info('I will not catch init exceptions');
+        log.info("I will not catch init exceptions");
     }
 
     var registry = {
@@ -1333,14 +1333,20 @@ define('pat-registry',[
         initialized: false,
         init: function registry_init() {
             $(document).ready(function() {
-                log.info('loaded: ' + Object.keys(registry.patterns).sort().join(', '));
+                log.info("loaded: " + Object.keys(registry.patterns).sort().join(", "));
                 registry.scan(document.body);
                 registry.initialized = true;
-                log.info('finished initial scan.');
+                log.info("finished initial scan.");
             });
         },
 
-        scan: function registry_scan(content, patterns, trigger) {
+        clear: function clearRegistry() {
+            // Removes all patterns from the registry. Currently only being
+            // used in tests.
+            this.patterns = {};
+        },
+
+        scan: function registryScan(content, patterns, trigger) {
             var $content = $(content),
                 all = [], allsel,
                 $match, plog;
@@ -1351,7 +1357,7 @@ define('pat-registry',[
             // selector for all patterns
             patterns.forEach(function registry_scan_loop(name) {
                 if (disabled[name]) {
-                    log.debug('Skipping disabled pattern:', name);
+                    log.debug("Skipping disabled pattern:", name);
                     return;
                 }
                 var pattern = registry.patterns[name];
@@ -1370,7 +1376,7 @@ define('pat-registry',[
             // Find all elements that belong to any pattern.
             allsel = all.join(",");
             $match = $content.findInclusive(allsel);
-            $match = $match.filter(function() { return $(this).parents('pre').length === 0; });
+            $match = $match.filter(function() { return $(this).parents("pre").length === 0; });
             $match = $match.filter(":not(.cant-touch-this)");
 
             // walk list backwards and initialize patterns inside-out.
@@ -1393,7 +1399,7 @@ define('pat-registry',[
                     }
                 }
             }, null);
-            $('body').addClass('patterns-loaded');
+            $("body").addClass("patterns-loaded");
         },
 
         register: function registry_register(pattern, name) {
@@ -1443,7 +1449,7 @@ define('pat-registry',[
 define('mockup-parser',[
   'jquery'
 ], function($) {
-  
+  'use strict';
 
   var parser = {
     getOptions: function getOptions($el, patternName, options) {
@@ -1492,7 +1498,7 @@ define('mockup-patterns-base',[
   'mockup-parser',
   "pat-logger"
 ], function($, Registry, mockupParser, logger) {
-  
+  'use strict';
   var log = logger.getLogger("Mockup Base");
 
   var initMockup = function initMockup($el, options, trigger) {
@@ -1500,10 +1506,15 @@ define('mockup-patterns-base',[
     var log = logger.getLogger("pat." + name);
     var pattern = $el.data('pattern-' + name);
     if (pattern === undefined && Registry.patterns[name]) {
+      options = this.prototype.parser === "mockup" ? mockupParser.getOptions($el, name, options) : options;
       try {
-          pattern = new Registry.patterns[name]($el, mockupParser.getOptions($el, name, options));
+          pattern = new Registry.patterns[name]($el, options);
       } catch (e) {
           log.error('Failed while initializing "' + name + '" pattern.');
+          if (window.DEBUG) {
+            // don't swallow errors in DEBUG mode.
+            log.error(e);
+          }
       }
       $el.data('pattern-' + name, pattern);
     }
@@ -1514,7 +1525,7 @@ define('mockup-patterns-base',[
   var Base = function($el, options) {
     this.$el = $el;
     this.options = $.extend(true, {}, this.defaults || {}, options || {});
-    this.init();
+    this.init($el, options);
     this.emit('init');
   };
 
@@ -1565,6 +1576,9 @@ define('mockup-patterns-base',[
     var Surrogate = function() { this.constructor = child; };
     Surrogate.prototype = parent.prototype;
     child.prototype = new Surrogate();
+
+    // Fall back to mockup parser if not specified otherwise.
+    patternProps.parser = patternProps.parser || 'mockup';
 
     // Add pattern's configuration properties (instance properties) to the subclass,
     $.extend(true, child.prototype, patternProps);
@@ -1630,7 +1644,7 @@ the specific language governing permissions and limitations under the Apache Lic
 })(jQuery);
 
 (function ($, undefined) {
-    
+    "use strict";
     /*global document, window, jQuery, console */
 
     if (window.Select2 !== undefined) {
@@ -5893,7 +5907,7 @@ define('mockup-patterns-select2',[
   'jquery.event.drag',
   'jquery.event.drop'
 ], function($, Base) {
-  
+  'use strict';
 
   var Select2 = Base.extend({
     name: 'select2',
@@ -6025,7 +6039,7 @@ define('mockup-patterns-select2',[
       var self = this;
       self.$el.select2(self.options);
       self.$select2 = self.$el.parent().find('.select2-container');
-      self.$el.parent().off('close.modal.patterns');
+      self.$el.parent().off('close.plone-modal.patterns');
       if (self.options.orderable) {
         self.$select2.addClass('select2-orderable');
       }
@@ -9349,12 +9363,12 @@ Picker.extend( 'pickatime', TimePicker )
 define('mockup-i18n',[
   'jquery'
 ], function($) {
-  
+  'use strict';
 
   var I18N = function() {
     var self = this;
-
     self.baseUrl = $('body').attr('data-i18ncatalogurl');
+
     if (!self.baseUrl) {
       self.baseUrl = '/plonejsi18n';
     }
@@ -9450,7 +9464,7 @@ define('mockup-i18n',[
     };
   };
 
-  return new I18N();
+  return I18N;
 });
 
 /* i18n integration.
@@ -9464,10 +9478,21 @@ define('mockup-i18n',[
 
 define('translate',[
   'mockup-i18n'
-], function(i18n) {
-  
-  i18n.loadCatalog('widgets');
-  return i18n.MessageFactory('widgets');
+], function(I18N) {
+  'use strict';
+
+  // we're creating a singleton here so we can potentially
+  // delay the initialization of the translate catalog
+  // until after the dom is available
+  var _t = null;
+  return function(msgid, keywords){
+    if(_t === null){
+      var i18n = new I18N();
+      i18n.loadCatalog('widgets');
+      _t = i18n.MessageFactory('widgets');
+    }
+    return _t(msgid, keywords);
+  };
 });
 
 /* PickADate pattern.
@@ -9563,7 +9588,7 @@ define('mockup-patterns-pickadate',[
   'mockup-patterns-select2',
   'translate'
 ], function($, Base, Picker, PickerDate, PickerTime, Select2, _t) {
-  
+  'use strict';
 
   var PickADate = Base.extend({
     name: 'pickadate',
@@ -9782,178 +9807,6 @@ define('mockup-patterns-pickadate',[
 
 });
 
-/**
- * Patterns registry fork - Central registry and scan logic for patterns
- *
- * Copyright 2012-2013 Simplon B.V.
- * Copyright 2012-2013 Florian Friesdorf
- * Copyright 2013 Marko Durkovic
- * Copyright 2013 Rok Garbas
- */
-
-/*
- * changes to previous patterns.register/scan mechanism
- * - if you want initialised class, do it in init
- * - init returns set of elements actually initialised
- * - handle once within init
- * - no turnstile anymore
- * - set pattern.jquery_plugin if you want it
- * - This is a global registry now
- * - elements can no longer be initialized more than once
- */
-define('mockup-registry',[
-    "jquery",
-    "pat-logger",
-    "pat-utils",
-    // below here modules that are only loaded
-    "pat-compat",
-    "pat-jquery-ext"
-], function($, logger, utils) {
-    
-
-    var log = logger.getLogger("registry");
-
-    var disable_re = /patterns-disable=([^&]+)/g,
-        dont_catch_re = /patterns-dont-catch/g,
-        dont_catch = false,
-        disabled = {}, match;
-
-    while ((match=disable_re.exec(window.location.search)) !== null) {
-        disabled[match[1]] = true;
-        log.info('Pattern disabled via url config:', match[1]);
-    }
-
-    while ((match=dont_catch_re.exec(window.location.search)) !== null) {
-        dont_catch = true;
-        log.info('I will not catch init exceptions');
-    }
-
-    if(window.registry_settings === undefined){
-        /* use global settings in case mockup-registry is included by
-           multiple compiled sources. Makes this a global registry */
-        window.registry_settings = {
-            patterns: {},
-            initialized: false
-        };
-    }
-
-    var registry = {
-        settings: window.registry_settings,
-        patterns: window.registry_settings.patterns,
-        // as long as the registry is not initialized, pattern
-        // registration just registers a pattern. Once init is called,
-        // the DOM is scanned. After that registering a new pattern
-        // results in rescanning the DOM only for this pattern.
-        init: function registry_init() {
-            $(document).ready(function() {
-                log.info('loaded: ' + Object.keys(registry.patterns).sort().join(', '));
-                registry.scan(document.body);
-                registry.settings.initialized = true;
-                log.info('finished initial scan.');
-            });
-        },
-
-        scan: function registry_scan(content, patterns, trigger) {
-            var $content = $(content),
-                all = [], allsel,
-                $match, plog;
-
-            // If no list of patterns was specified, we scan for all patterns
-            patterns = patterns || Object.keys(registry.patterns);
-
-            // selector for all patterns
-            patterns.forEach(function registry_scan_loop(name) {
-                if (disabled[name]) {
-                    log.debug('Skipping disabled pattern:', name);
-                    return;
-                }
-                var pattern = registry.patterns[name];
-                if (pattern.transform) {
-                    try {
-                        pattern.transform($content);
-                    } catch (e) {
-                        if (dont_catch) { throw(e); }
-                        log.error("Transform error for pattern" + name, e);
-                    }
-                }
-                if (pattern.trigger) {
-                    all.push(pattern.trigger);
-                }
-            });
-            // Find all elements that belong to any pattern.
-            allsel = all.join(",");
-            $match = $content.findInclusive(allsel);
-            $match = $match.filter(function() { return $(this).parents('pre').length === 0; });
-            $match = $match.filter(":not(.cant-touch-this)");
-
-            // walk list backwards and initialize patterns inside-out.
-            $match.toArray().reduceRight(function registry_pattern_init(acc, el) {
-                var pattern, $el = $(el);
-                for (var name in registry.patterns) {
-                    pattern = registry.patterns[name];
-                    if (pattern.init) {
-                        plog = logger.getLogger("pat." + name);
-                        if ($el.is(pattern.trigger) && !$el.hasClass('pattern-initialized')) {
-                            plog.debug("Initialising:", $el);
-                            try {
-                                pattern.init($el, null, trigger);
-                                plog.debug("done.");
-                            } catch (e) {
-                                if (dont_catch) { throw(e); }
-                                plog.error("Caught error:", e);
-                            }
-                            $el.addClass('pattern-initialized');
-                        }
-                    }
-                }
-            }, null);
-            $('body').addClass('patterns-loaded');
-        },
-
-        register: function registry_register(pattern, name) {
-            var plugin_name, jquery_plugin;
-            name = name || pattern.name;
-            if (!name) {
-                log.error("Pattern lacks a name:", pattern);
-                return false;
-            }
-            if (registry.patterns[name]) {
-                log.error("Already have a pattern called: " + name);
-                return false;
-            }
-
-            // register pattern to be used for scanning new content
-            registry.patterns[name] = pattern;
-
-            // register pattern as jquery plugin
-            if (pattern.jquery_plugin) {
-                plugin_name = ("pat-" + name)
-                        .replace(/-([a-zA-Z])/g, function(match, p1) {
-                            return p1.toUpperCase();
-                        });
-                $.fn[plugin_name] = utils.jqueryPlugin(pattern);
-                // BBB 2012-12-10 and also for Mockup patterns.
-                $.fn[plugin_name.replace(/^pat/, "pattern")] = utils.jqueryPlugin(pattern);
-            }
-            log.debug("Registered pattern:", name, pattern);
-            if (registry.settings.initialized) {
-                registry.scan(document.body, [name]);
-            }
-            return true;
-        }
-    };
-
-    $(document).on("patterns-injected.patterns",
-            function registry_onInject(ev, inject_config, inject_trigger) {
-                registry.scan(ev.target, null, {type: "injection", element: inject_trigger});
-                $(ev.target).trigger("patterns-injected-scanned");
-            });
-
-    return registry;
-});
-// jshint indent: 4, browser: true, jquery: true, quotmark: double
-// vim: sw=4 expandtab
-;
 /* Pattern utils
  */
 
@@ -9961,7 +9814,7 @@ define('mockup-registry',[
 define('mockup-utils',[
   'jquery'
 ], function($) {
-  
+  'use strict';
 
   var QueryHelper = function(options) {
     /* if pattern argument provided, it can implement the interface of:
@@ -9975,7 +9828,7 @@ define('mockup-utils',[
       pattern: null, // must be passed in
       vocabularyUrl: null,
       searchParam: 'SearchableText', // query string param to pass to search url
-      attributes: ['UID','Title', 'Description', 'getURL', 'Type'],
+      attributes: ['UID', 'Title', 'Description', 'getURL', 'portal_type'],
       batchSize: 10, // number of results to retrive
       baseCriteria: [],
       pathDepth: 1
@@ -10351,11 +10204,11 @@ define('mockup-utils',[
 define('plone-patterns-toolbar',[
   'jquery',
   'mockup-patterns-base',
-  'mockup-registry',
+  'pat-registry',
   'mockup-utils',
   'jquery.cookie'
 ], function ($, Base, Registry, utils) {
-  
+  'use strict';
 
   var Toolbar = Base.extend({
     name: 'toolbar',
@@ -10623,7 +10476,7 @@ define('mockup-patterns-accessibility',[
   'mockup-patterns-base',
   'jquery.cookie'
 ], function($, Base) {
-  
+  'use strict';
 
   var Accessibility = Base.extend({
     name: 'accessibility',
@@ -10752,7 +10605,7 @@ define('mockup-patterns-autotoc',[
   'jquery',
   'mockup-patterns-base'
 ], function($, Base) {
-  
+  'use strict';
 
   var AutoTOC = Base.extend({
     name: 'autotoc',
@@ -10818,7 +10671,7 @@ define('mockup-patterns-autotoc',[
               }, self.options.scrollDuration, self.options.scrollEasing);
             }
             if (self.$el.parents('.plone-modal').size() !== 0) {
-              self.$el.trigger('resize.modal.patterns');
+              self.$el.trigger('resize.plone-modal.patterns');
             }
             $(this).trigger('clicked');
           });
@@ -10861,7 +10714,7 @@ define('mockup-patterns-cookietrigger',[
   'jquery',
   'mockup-patterns-base'
 ], function ($, Base) {
-  
+  'use strict';
 
   var CookieTrigger = Base.extend({
     name: 'cookietrigger',
@@ -10943,7 +10796,7 @@ define('mockup-patterns-formunloadalert',[
   'mockup-patterns-base',
   'translate'
 ], function ($, Base, _t) {
-  
+  'use strict';
 
   var FormUnloadAlert = Base.extend({
     name: 'formunloadalert',
@@ -11037,7 +10890,7 @@ define('mockup-patterns-preventdoublesubmit',[
   'mockup-patterns-base',
   'translate'
 ], function($, Base, _t) {
-  
+  'use strict';
 
   var PreventDoubleSubmit = Base.extend({
     name: 'preventdoublesubmit',
@@ -11103,7 +10956,7 @@ define('mockup-patterns-formautofocus',[
   'jquery',
   'mockup-patterns-base'
 ], function($, Base, undefined) {
-  
+  'use strict';
 
   var FormAutoFocus = Base.extend({
     name: 'formautofocus',
@@ -11212,7 +11065,7 @@ define('mockup-patterns-markspeciallinks',[
   'mockup-patterns-base',
   'jquery'
 ], function (Base, $) {
-  
+  'use strict';
 
   var MarkSpecialLinks = Base.extend({
     name: 'markspeciallinks',
@@ -16283,7 +16136,7 @@ define('mockup-patterns-backdrop',[
   'jquery',
   'mockup-patterns-base'
 ], function($, Base) {
-  
+  'use strict';
 
   var Backdrop = Base.extend({
     name: 'backdrop',
@@ -17968,7 +17821,7 @@ define('mockup-router',[
   'underscore',
   'backbone'
 ], function($, _, Backbone) {
-  
+  'use strict';
 
   var regexEscape = function(s) {
     return s.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
@@ -18073,7 +17926,7 @@ define('mockup-router',[
 }
 
 (function($) {
-
+"use strict";
 
 /*
     Usage Note:
@@ -19298,16 +19151,16 @@ function log() {
  *
  *
  * Example: example-basic
- *    <a href="#modal1" class="plone-btn plone-btn-large plone-btn-primary pat-modal"
- *                      data-pat-modal="width: 400">Modal basic</a>
+ *    <a href="#modal1" class="plone-btn plone-btn-large plone-btn-primary pat-plone-modal"
+ *                      data-pat-plone-modal="width: 400">Modal basic</a>
  *    <div id="modal1" style="display: none">
  *      <h1>Basic modal!</h1>
  *      <p>Indeed. Whoa whoa whoa whoa. Wait.</p>
  *    </div>
  *
  * Example: example-long
- *    <a href="#modal2" class="plone-btn plone-btn-lg plone-btn-primary pat-modal"
- *                      data-pat-modal="width: 500">Modal long scrolling</a>
+ *    <a href="#modal2" class="plone-btn plone-btn-lg plone-btn-primary pat-plone-modal"
+ *                      data-pat-plone-modal="width: 500">Modal long scrolling</a>
  *    <div id="modal2" style="display: none">
  *      <h1>Basic with scrolling</h1>
  *      <p>Lorem ipsum dolor sit amet, consectetur adipisicing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua</p>
@@ -19325,8 +19178,8 @@ function log() {
  *
  *
  * Example: example-tinymce
- *    <a href="#modaltinymce" class="btn btn-lg btn-primary pat-modal"
- *       data-pat-modal="height: 600px;
+ *    <a href="#modaltinymce" class="btn btn-lg btn-primary pat-plone-modal"
+ *       data-pat-plone-modal="height: 600px;
  *                       width: 80%">
  *       Modal with TinyMCE</a>
  *    <div id="modaltinymce" style="display:none">
@@ -19348,11 +19201,11 @@ define('mockup-patterns-modal',[
   'mockup-utils',
   'jquery.form'
 ], function($, _, Base, Backdrop, registry, Router, utils) {
-  
+  'use strict';
 
   var Modal = Base.extend({
-    name: 'modal',
-    trigger: '.pat-modal',
+    name: 'plone-modal',
+    trigger: '.pat-plone-modal',
     createModal: null,
     $model: null,
     defaults: {
@@ -19566,7 +19419,7 @@ define('mockup-patterns-modal',[
             if (options.displayInModal === true) {
               self.redraw(response, patternOptions);
             } else {
-              $action.trigger('destroy.modal.patterns');
+              $action.trigger('destroy.plone-modal.patterns');
               // also calls hide
               if (options.reloadWindowOnClose) {
                 self.reloadWindow();
@@ -19714,7 +19567,7 @@ define('mockup-patterns-modal',[
           .on('click', function(e) {
             e.stopPropagation();
             e.preventDefault();
-            $(e.target).trigger('destroy.modal.patterns');
+            $(e.target).trigger('destroy.plone-modal.patterns');
           });
 
         // cleanup html
@@ -19737,11 +19590,11 @@ define('mockup-patterns-modal',[
             }
             self.$modal.trigger('modal-click');
           })
-          .on('destroy.modal.patterns', function(e) {
+          .on('destroy.plone-modal.patterns', function(e) {
             e.stopPropagation();
             self.hide();
           })
-          .on('resize.modal.patterns', function(e) {
+          .on('resize.plone-modal.patterns', function(e) {
             e.stopPropagation();
             e.preventDefault();
             self.positionModal();
@@ -20077,7 +19930,7 @@ define('mockup-patterns-modal',[
       $('img', self.$modal).load(function() {
         self.positionModal();
       });
-      $(window.parent).on('resize.modal.patterns', function() {
+      $(window.parent).on('resize.plone-modal.patterns', function() {
         self.positionModal();
       });
       self.emit('shown');
@@ -20105,7 +19958,7 @@ define('mockup-patterns-modal',[
         self.$modal.remove();
         self.initModal();
       }
-      $(window.parent).off('resize.modal.patterns');
+      $(window.parent).off('resize.plone-modal.patterns');
       self.emit('hidden');
       $('body').removeClass('plone-modal-open');
     },
@@ -20156,7 +20009,7 @@ define('mockup-patterns-livesearch',[
   'underscore',
   'translate'
 ], function ($, Base, _, _t){
-  
+  'use strict';
 
   var Livesearch = Base.extend({
     name: 'livesearch',
@@ -20297,6 +20150,7 @@ define('mockup-patterns-livesearch',[
     },
     init: function(){
       var self = this;
+
       self.$input = self.$el.find(self.options.inputSelector);
       self.$input.off('focusout').on('focusout', function(){
         /* we put this in a timer so click events still
@@ -20408,9 +20262,10 @@ define('mockup-patterns-contentloader',[
   'mockup-patterns-base',
   'pat-logger',
   'pat-registry',
-  'mockup-utils'
-], function($, Base, logger, Registry, utils) {
-  
+  'mockup-utils',
+  'underscore'
+], function($, Base, logger, Registry, utils, _) {
+  'use strict';
   var log = logger.getLogger('pat-contentloader');
 
   var ContentLoader = Base.extend({
@@ -20420,36 +20275,68 @@ define('mockup-patterns-contentloader',[
       url: null,
       content: null,
       trigger: 'click',
-      target: null
+      target: null,
+      template: null,
+      dataType: 'html'
     },
     init: function() {
       var that = this;
       if(that.options.url === 'el' && that.$el[0].tagName === 'A'){
         that.options.url = that.$el.attr('href');
       }
-      that.$el.on(that.options.trigger, function(e){
-        e.preventDefault();
-        that.$el.addClass('loading-content');
-        if(that.options.url){
-          that.loadRemote();
-        }else{
-          that.loadLocal();
-        }
-      });
+      if(that.options.trigger === 'immediate'){
+        that._load();
+      }else{
+        that.$el.on(that.options.trigger, function(e){
+          e.preventDefault();
+          that._load();
+        });
+      }
+    },
+    _load: function(){
+      var that = this;
+      that.$el.addClass('loading-content');
+      if(that.options.url){
+        that.loadRemote();
+      }else{
+        that.loadLocal();
+      }
     },
     loadRemote: function(){
       var that = this;
       $.ajax({
-        url: that.options.url
-      }).done(function(data){
-        if(data.indexOf('<html') !== -1){
-          data = utils.parseBodyTag(data);
+        url: that.options.url,
+        dataType: that.options.dataType,
+        success: function(data){
+          var $el;
+          if(that.options.dataType === 'html'){
+            if(data.indexOf('<html') !== -1){
+              data = utils.parseBodyTag(data);
+            }
+            $el = $(data);
+          }else if(that.options.dataType.indexOf('json') !== -1){
+            // must have template defined with json
+            if(data.constructor === Array && data.length === 1){
+              // normalize json if it makes sense since some json returns as array with one item
+              data = data[0];
+            }
+            try{
+              $el = $(_.template(that.options.template, data));
+            }catch(e){
+              // log this
+              log.warn('error rendering template. pat-contentloader will not work');
+              return;
+            }
+          }
+          if(that.options.content !== null){
+            $el = $el.find(that.options.content);
+          }
+          that.loadLocal($el);
+          that.$el.removeClass('loading-content');
+        },
+        error: function(){
+          that.$el.addClass('content-load-error');
         }
-        var $el = $(data);
-        if(that.options.content !== null){
-          $el = $el.find(that.options.content);
-        }
-        that.loadLocal($el);
       });
     },
     loadLocal: function($content){
@@ -20485,16 +20372,16 @@ define('mockup-patterns-contentloader',[
 define("bootstrap-dropdown", ["jquery"], function() {
   return (function() {
 /* ========================================================================
- * Bootstrap: dropdown.js v3.2.0
+ * Bootstrap: dropdown.js v3.3.4
  * http://getbootstrap.com/javascript/#dropdowns
  * ========================================================================
- * Copyright 2011-2014 Twitter, Inc.
+ * Copyright 2011-2015 Twitter, Inc.
  * Licensed under MIT (https://github.com/twbs/bootstrap/blob/master/LICENSE)
  * ======================================================================== */
 
 
 +function ($) {
-  
+  'use strict';
 
   // DROPDOWN CLASS DEFINITION
   // =========================
@@ -20505,7 +20392,7 @@ define("bootstrap-dropdown", ["jquery"], function() {
     $(element).on('click.bs.dropdown', this.toggle)
   }
 
-  Dropdown.VERSION = '3.2.0'
+  Dropdown.VERSION = '3.3.4'
 
   Dropdown.prototype.toggle = function (e) {
     var $this = $(this)
@@ -20528,7 +20415,9 @@ define("bootstrap-dropdown", ["jquery"], function() {
 
       if (e.isDefaultPrevented()) return
 
-      $this.trigger('focus')
+      $this
+        .trigger('focus')
+        .attr('aria-expanded', 'true')
 
       $parent
         .toggleClass('open')
@@ -20539,7 +20428,7 @@ define("bootstrap-dropdown", ["jquery"], function() {
   }
 
   Dropdown.prototype.keydown = function (e) {
-    if (!/(38|40|27)/.test(e.keyCode)) return
+    if (!/(38|40|27|32)/.test(e.which) || /input|textarea/i.test(e.target.tagName)) return
 
     var $this = $(this)
 
@@ -20551,20 +20440,20 @@ define("bootstrap-dropdown", ["jquery"], function() {
     var $parent  = getParent($this)
     var isActive = $parent.hasClass('open')
 
-    if (!isActive || (isActive && e.keyCode == 27)) {
+    if ((!isActive && e.which != 27) || (isActive && e.which == 27)) {
       if (e.which == 27) $parent.find(toggle).trigger('focus')
       return $this.trigger('click')
     }
 
-    var desc = ' li:not(.divider):visible a'
+    var desc = ' li:not(.disabled):visible a'
     var $items = $parent.find('[role="menu"]' + desc + ', [role="listbox"]' + desc)
 
     if (!$items.length) return
 
-    var index = $items.index($items.filter(':focus'))
+    var index = $items.index(e.target)
 
-    if (e.keyCode == 38 && index > 0)                 index--                        // up
-    if (e.keyCode == 40 && index < $items.length - 1) index++                        // down
+    if (e.which == 38 && index > 0)                 index--                        // up
+    if (e.which == 40 && index < $items.length - 1) index++                        // down
     if (!~index)                                      index = 0
 
     $items.eq(index).trigger('focus')
@@ -20574,11 +20463,17 @@ define("bootstrap-dropdown", ["jquery"], function() {
     if (e && e.which === 3) return
     $(backdrop).remove()
     $(toggle).each(function () {
-      var $parent = getParent($(this))
+      var $this         = $(this)
+      var $parent       = getParent($this)
       var relatedTarget = { relatedTarget: this }
+
       if (!$parent.hasClass('open')) return
+
       $parent.trigger(e = $.Event('hide.bs.dropdown', relatedTarget))
+
       if (e.isDefaultPrevented()) return
+
+      $this.attr('aria-expanded', 'false')
       $parent.removeClass('open').trigger('hidden.bs.dropdown', relatedTarget)
     })
   }
@@ -20632,7 +20527,9 @@ define("bootstrap-dropdown", ["jquery"], function() {
     .on('click.bs.dropdown.data-api', clearMenus)
     .on('click.bs.dropdown.data-api', '.dropdown form', function (e) { e.stopPropagation() })
     .on('click.bs.dropdown.data-api', toggle, Dropdown.prototype.toggle)
-    .on('keydown.bs.dropdown.data-api', toggle + ', [role="menu"], [role="listbox"]', Dropdown.prototype.keydown)
+    .on('keydown.bs.dropdown.data-api', toggle, Dropdown.prototype.keydown)
+    .on('keydown.bs.dropdown.data-api', '[role="menu"]', Dropdown.prototype.keydown)
+    .on('keydown.bs.dropdown.data-api', '[role="listbox"]', Dropdown.prototype.keydown)
 
 }(jQuery);
 
@@ -20645,16 +20542,16 @@ define("bootstrap-dropdown", ["jquery"], function() {
 define("bootstrap-collapse", ["jquery"], function() {
   return (function() {
 /* ========================================================================
- * Bootstrap: collapse.js v3.2.0
+ * Bootstrap: collapse.js v3.3.4
  * http://getbootstrap.com/javascript/#collapse
  * ========================================================================
- * Copyright 2011-2014 Twitter, Inc.
+ * Copyright 2011-2015 Twitter, Inc.
  * Licensed under MIT (https://github.com/twbs/bootstrap/blob/master/LICENSE)
  * ======================================================================== */
 
 
 +function ($) {
-  
+  'use strict';
 
   // COLLAPSE PUBLIC CLASS DEFINITION
   // ================================
@@ -20662,13 +20559,22 @@ define("bootstrap-collapse", ["jquery"], function() {
   var Collapse = function (element, options) {
     this.$element      = $(element)
     this.options       = $.extend({}, Collapse.DEFAULTS, options)
+    this.$trigger      = $('[data-toggle="collapse"][href="#' + element.id + '"],' +
+                           '[data-toggle="collapse"][data-target="#' + element.id + '"]')
     this.transitioning = null
 
-    if (this.options.parent) this.$parent = $(this.options.parent)
+    if (this.options.parent) {
+      this.$parent = this.getParent()
+    } else {
+      this.addAriaAndCollapsedClass(this.$element, this.$trigger)
+    }
+
     if (this.options.toggle) this.toggle()
   }
 
-  Collapse.VERSION  = '3.2.0'
+  Collapse.VERSION  = '3.3.4'
+
+  Collapse.TRANSITION_DURATION = 350
 
   Collapse.DEFAULTS = {
     toggle: true
@@ -20682,17 +20588,21 @@ define("bootstrap-collapse", ["jquery"], function() {
   Collapse.prototype.show = function () {
     if (this.transitioning || this.$element.hasClass('in')) return
 
+    var activesData
+    var actives = this.$parent && this.$parent.children('.panel').children('.in, .collapsing')
+
+    if (actives && actives.length) {
+      activesData = actives.data('bs.collapse')
+      if (activesData && activesData.transitioning) return
+    }
+
     var startEvent = $.Event('show.bs.collapse')
     this.$element.trigger(startEvent)
     if (startEvent.isDefaultPrevented()) return
 
-    var actives = this.$parent && this.$parent.find('> .panel > .in')
-
     if (actives && actives.length) {
-      var hasData = actives.data('bs.collapse')
-      if (hasData && hasData.transitioning) return
       Plugin.call(actives, 'hide')
-      hasData || actives.data('bs.collapse', null)
+      activesData || actives.data('bs.collapse', null)
     }
 
     var dimension = this.dimension()
@@ -20700,6 +20610,11 @@ define("bootstrap-collapse", ["jquery"], function() {
     this.$element
       .removeClass('collapse')
       .addClass('collapsing')[dimension](0)
+      .attr('aria-expanded', true)
+
+    this.$trigger
+      .removeClass('collapsed')
+      .attr('aria-expanded', true)
 
     this.transitioning = 1
 
@@ -20718,7 +20633,7 @@ define("bootstrap-collapse", ["jquery"], function() {
 
     this.$element
       .one('bsTransitionEnd', $.proxy(complete, this))
-      .emulateTransitionEnd(350)[dimension](this.$element[0][scrollSize])
+      .emulateTransitionEnd(Collapse.TRANSITION_DURATION)[dimension](this.$element[0][scrollSize])
   }
 
   Collapse.prototype.hide = function () {
@@ -20734,17 +20649,21 @@ define("bootstrap-collapse", ["jquery"], function() {
 
     this.$element
       .addClass('collapsing')
-      .removeClass('collapse')
-      .removeClass('in')
+      .removeClass('collapse in')
+      .attr('aria-expanded', false)
+
+    this.$trigger
+      .addClass('collapsed')
+      .attr('aria-expanded', false)
 
     this.transitioning = 1
 
     var complete = function () {
       this.transitioning = 0
       this.$element
-        .trigger('hidden.bs.collapse')
         .removeClass('collapsing')
         .addClass('collapse')
+        .trigger('hidden.bs.collapse')
     }
 
     if (!$.support.transition) return complete.call(this)
@@ -20752,11 +20671,38 @@ define("bootstrap-collapse", ["jquery"], function() {
     this.$element
       [dimension](0)
       .one('bsTransitionEnd', $.proxy(complete, this))
-      .emulateTransitionEnd(350)
+      .emulateTransitionEnd(Collapse.TRANSITION_DURATION)
   }
 
   Collapse.prototype.toggle = function () {
     this[this.$element.hasClass('in') ? 'hide' : 'show']()
+  }
+
+  Collapse.prototype.getParent = function () {
+    return $(this.options.parent)
+      .find('[data-toggle="collapse"][data-parent="' + this.options.parent + '"]')
+      .each($.proxy(function (i, element) {
+        var $element = $(element)
+        this.addAriaAndCollapsedClass(getTargetFromTrigger($element), $element)
+      }, this))
+      .end()
+  }
+
+  Collapse.prototype.addAriaAndCollapsedClass = function ($element, $trigger) {
+    var isOpen = $element.hasClass('in')
+
+    $element.attr('aria-expanded', isOpen)
+    $trigger
+      .toggleClass('collapsed', !isOpen)
+      .attr('aria-expanded', isOpen)
+  }
+
+  function getTargetFromTrigger($trigger) {
+    var href
+    var target = $trigger.attr('data-target')
+      || (href = $trigger.attr('href')) && href.replace(/.*(?=#[^\s]+$)/, '') // strip for ie7
+
+    return $(target)
   }
 
 
@@ -20769,7 +20715,7 @@ define("bootstrap-collapse", ["jquery"], function() {
       var data    = $this.data('bs.collapse')
       var options = $.extend({}, Collapse.DEFAULTS, $this.data(), typeof option == 'object' && option)
 
-      if (!data && options.toggle && option == 'show') option = !option
+      if (!data && options.toggle && /show|hide/.test(option)) options.toggle = false
       if (!data) $this.data('bs.collapse', (data = new Collapse(this, options)))
       if (typeof option == 'string') data[option]()
     })
@@ -20794,21 +20740,13 @@ define("bootstrap-collapse", ["jquery"], function() {
   // =================
 
   $(document).on('click.bs.collapse.data-api', '[data-toggle="collapse"]', function (e) {
-    var href
     var $this   = $(this)
-    var target  = $this.attr('data-target')
-        || e.preventDefault()
-        || (href = $this.attr('href')) && href.replace(/.*(?=#[^\s]+$)/, '') // strip for ie7
-    var $target = $(target)
+
+    if (!$this.attr('data-target')) e.preventDefault()
+
+    var $target = getTargetFromTrigger($this)
     var data    = $target.data('bs.collapse')
     var option  = data ? 'toggle' : $this.data()
-    var parent  = $this.attr('data-parent')
-    var $parent = parent && $(parent)
-
-    if (!data || !data.transitioning) {
-      if ($parent) $parent.find('[data-toggle="collapse"][data-parent="' + parent + '"]').not($this).addClass('collapsed')
-      $this[$target.hasClass('in') ? 'addClass' : 'removeClass']('collapsed')
-    }
 
     Plugin.call($target, option)
   })
@@ -20824,33 +20762,35 @@ return window.jQuery.fn.collapse.Constructor;
 define("bootstrap-tooltip", ["jquery"], function() {
   return (function() {
 /* ========================================================================
- * Bootstrap: tooltip.js v3.2.0
+ * Bootstrap: tooltip.js v3.3.4
  * http://getbootstrap.com/javascript/#tooltip
  * Inspired by the original jQuery.tipsy by Jason Frame
  * ========================================================================
- * Copyright 2011-2014 Twitter, Inc.
+ * Copyright 2011-2015 Twitter, Inc.
  * Licensed under MIT (https://github.com/twbs/bootstrap/blob/master/LICENSE)
  * ======================================================================== */
 
 
 +function ($) {
-  
+  'use strict';
 
   // TOOLTIP PUBLIC CLASS DEFINITION
   // ===============================
 
   var Tooltip = function (element, options) {
-    this.type       =
-    this.options    =
-    this.enabled    =
-    this.timeout    =
-    this.hoverState =
+    this.type       = null
+    this.options    = null
+    this.enabled    = null
+    this.timeout    = null
+    this.hoverState = null
     this.$element   = null
 
     this.init('tooltip', element, options)
   }
 
-  Tooltip.VERSION  = '3.2.0'
+  Tooltip.VERSION  = '3.3.4'
+
+  Tooltip.TRANSITION_DURATION = 150
 
   Tooltip.DEFAULTS = {
     animation: true,
@@ -20874,6 +20814,10 @@ define("bootstrap-tooltip", ["jquery"], function() {
     this.$element  = $(element)
     this.options   = this.getOptions(options)
     this.$viewport = this.options.viewport && $(this.options.viewport.selector || this.options.viewport)
+
+    if (this.$element[0] instanceof document.constructor && !this.options.selector) {
+      throw new Error('`selector` option must be specified when initializing ' + this.type + ' on the window.document object!')
+    }
 
     var triggers = this.options.trigger.split(' ')
 
@@ -20928,6 +20872,11 @@ define("bootstrap-tooltip", ["jquery"], function() {
     var self = obj instanceof this.constructor ?
       obj : $(obj.currentTarget).data('bs.' + this.type)
 
+    if (self && self.$tip && self.$tip.is(':visible')) {
+      self.hoverState = 'in'
+      return
+    }
+
     if (!self) {
       self = new this.constructor(obj.currentTarget, this.getDelegateOptions())
       $(obj.currentTarget).data('bs.' + this.type, self)
@@ -20970,7 +20919,7 @@ define("bootstrap-tooltip", ["jquery"], function() {
     if (this.hasContent() && this.enabled) {
       this.$element.trigger(e)
 
-      var inDom = $.contains(document.documentElement, this.$element[0])
+      var inDom = $.contains(this.$element[0].ownerDocument.documentElement, this.$element[0])
       if (e.isDefaultPrevented() || !inDom) return
       var that = this
 
@@ -21006,13 +20955,13 @@ define("bootstrap-tooltip", ["jquery"], function() {
 
       if (autoPlace) {
         var orgPlacement = placement
-        var $parent      = this.$element.parent()
-        var parentDim    = this.getPosition($parent)
+        var $container   = this.options.container ? $(this.options.container) : this.$element.parent()
+        var containerDim = this.getPosition($container)
 
-        placement = placement == 'bottom' && pos.top   + pos.height       + actualHeight - parentDim.scroll > parentDim.height ? 'top'    :
-                    placement == 'top'    && pos.top   - parentDim.scroll - actualHeight < 0                                   ? 'bottom' :
-                    placement == 'right'  && pos.right + actualWidth      > parentDim.width                                    ? 'left'   :
-                    placement == 'left'   && pos.left  - actualWidth      < parentDim.left                                     ? 'right'  :
+        placement = placement == 'bottom' && pos.bottom + actualHeight > containerDim.bottom ? 'top'    :
+                    placement == 'top'    && pos.top    - actualHeight < containerDim.top    ? 'bottom' :
+                    placement == 'right'  && pos.right  + actualWidth  > containerDim.width  ? 'left'   :
+                    placement == 'left'   && pos.left   - actualWidth  < containerDim.left   ? 'right'  :
                     placement
 
         $tip
@@ -21025,14 +20974,17 @@ define("bootstrap-tooltip", ["jquery"], function() {
       this.applyPlacement(calculatedOffset, placement)
 
       var complete = function () {
+        var prevHoverState = that.hoverState
         that.$element.trigger('shown.bs.' + that.type)
         that.hoverState = null
+
+        if (prevHoverState == 'out') that.leave(that)
       }
 
       $.support.transition && this.$tip.hasClass('fade') ?
         $tip
           .one('bsTransitionEnd', complete)
-          .emulateTransitionEnd(150) :
+          .emulateTransitionEnd(Tooltip.TRANSITION_DURATION) :
         complete()
     }
   }
@@ -21079,16 +21031,18 @@ define("bootstrap-tooltip", ["jquery"], function() {
     if (delta.left) offset.left += delta.left
     else offset.top += delta.top
 
-    var arrowDelta          = delta.left ? delta.left * 2 - width + actualWidth : delta.top * 2 - height + actualHeight
-    var arrowPosition       = delta.left ? 'left'        : 'top'
-    var arrowOffsetPosition = delta.left ? 'offsetWidth' : 'offsetHeight'
+    var isVertical          = /top|bottom/.test(placement)
+    var arrowDelta          = isVertical ? delta.left * 2 - width + actualWidth : delta.top * 2 - height + actualHeight
+    var arrowOffsetPosition = isVertical ? 'offsetWidth' : 'offsetHeight'
 
     $tip.offset(offset)
-    this.replaceArrow(arrowDelta, $tip[0][arrowOffsetPosition], arrowPosition)
+    this.replaceArrow(arrowDelta, $tip[0][arrowOffsetPosition], isVertical)
   }
 
-  Tooltip.prototype.replaceArrow = function (delta, dimension, position) {
-    this.arrow().css(position, delta ? (50 * (1 - delta / dimension) + '%') : '')
+  Tooltip.prototype.replaceArrow = function (delta, dimension, isVertical) {
+    this.arrow()
+      .css(isVertical ? 'left' : 'top', 50 * (1 - delta / dimension) + '%')
+      .css(isVertical ? 'top' : 'left', '')
   }
 
   Tooltip.prototype.setContent = function () {
@@ -21099,16 +21053,17 @@ define("bootstrap-tooltip", ["jquery"], function() {
     $tip.removeClass('fade in top bottom left right')
   }
 
-  Tooltip.prototype.hide = function () {
+  Tooltip.prototype.hide = function (callback) {
     var that = this
-    var $tip = this.tip()
+    var $tip = $(this.$tip)
     var e    = $.Event('hide.bs.' + this.type)
-
-    this.$element.removeAttr('aria-describedby')
 
     function complete() {
       if (that.hoverState != 'in') $tip.detach()
-      that.$element.trigger('hidden.bs.' + that.type)
+      that.$element
+        .removeAttr('aria-describedby')
+        .trigger('hidden.bs.' + that.type)
+      callback && callback()
     }
 
     this.$element.trigger(e)
@@ -21117,10 +21072,10 @@ define("bootstrap-tooltip", ["jquery"], function() {
 
     $tip.removeClass('in')
 
-    $.support.transition && this.$tip.hasClass('fade') ?
+    $.support.transition && $tip.hasClass('fade') ?
       $tip
         .one('bsTransitionEnd', complete)
-        .emulateTransitionEnd(150) :
+        .emulateTransitionEnd(Tooltip.TRANSITION_DURATION) :
       complete()
 
     this.hoverState = null
@@ -21141,20 +21096,27 @@ define("bootstrap-tooltip", ["jquery"], function() {
 
   Tooltip.prototype.getPosition = function ($element) {
     $element   = $element || this.$element
+
     var el     = $element[0]
     var isBody = el.tagName == 'BODY'
-    return $.extend({}, (typeof el.getBoundingClientRect == 'function') ? el.getBoundingClientRect() : null, {
-      scroll: isBody ? document.documentElement.scrollTop || document.body.scrollTop : $element.scrollTop(),
-      width:  isBody ? $(window).width()  : $element.outerWidth(),
-      height: isBody ? $(window).height() : $element.outerHeight()
-    }, isBody ? { top: 0, left: 0 } : $element.offset())
+
+    var elRect    = el.getBoundingClientRect()
+    if (elRect.width == null) {
+      // width and height are missing in IE8, so compute them manually; see https://github.com/twbs/bootstrap/issues/14093
+      elRect = $.extend({}, elRect, { width: elRect.right - elRect.left, height: elRect.bottom - elRect.top })
+    }
+    var elOffset  = isBody ? { top: 0, left: 0 } : $element.offset()
+    var scroll    = { scroll: isBody ? document.documentElement.scrollTop || document.body.scrollTop : $element.scrollTop() }
+    var outerDims = isBody ? { width: $(window).width(), height: $(window).height() } : null
+
+    return $.extend({}, elRect, scroll, outerDims, elOffset)
   }
 
   Tooltip.prototype.getCalculatedOffset = function (placement, pos, actualWidth, actualHeight) {
-    return placement == 'bottom' ? { top: pos.top + pos.height,   left: pos.left + pos.width / 2 - actualWidth / 2  } :
-           placement == 'top'    ? { top: pos.top - actualHeight, left: pos.left + pos.width / 2 - actualWidth / 2  } :
+    return placement == 'bottom' ? { top: pos.top + pos.height,   left: pos.left + pos.width / 2 - actualWidth / 2 } :
+           placement == 'top'    ? { top: pos.top - actualHeight, left: pos.left + pos.width / 2 - actualWidth / 2 } :
            placement == 'left'   ? { top: pos.top + pos.height / 2 - actualHeight / 2, left: pos.left - actualWidth } :
-        /* placement == 'right' */ { top: pos.top + pos.height / 2 - actualHeight / 2, left: pos.left + pos.width   }
+        /* placement == 'right' */ { top: pos.top + pos.height / 2 - actualHeight / 2, left: pos.left + pos.width }
 
   }
 
@@ -21211,14 +21173,6 @@ define("bootstrap-tooltip", ["jquery"], function() {
     return (this.$arrow = this.$arrow || this.tip().find('.tooltip-arrow'))
   }
 
-  Tooltip.prototype.validate = function () {
-    if (!this.$element[0].parentNode) {
-      this.hide()
-      this.$element = null
-      this.options  = null
-    }
-  }
-
   Tooltip.prototype.enable = function () {
     this.enabled = true
   }
@@ -21245,8 +21199,11 @@ define("bootstrap-tooltip", ["jquery"], function() {
   }
 
   Tooltip.prototype.destroy = function () {
+    var that = this
     clearTimeout(this.timeout)
-    this.hide().$element.off('.' + this.type).removeData('bs.' + this.type)
+    this.hide(function () {
+      that.$element.off('.' + that.type).removeData('bs.' + that.type)
+    })
   }
 
 
@@ -21259,7 +21216,7 @@ define("bootstrap-tooltip", ["jquery"], function() {
       var data    = $this.data('bs.tooltip')
       var options = typeof option == 'object' && option
 
-      if (!data && option == 'destroy') return
+      if (!data && /destroy|hide/.test(option)) return
       if (!data) $this.data('bs.tooltip', (data = new Tooltip(this, options)))
       if (typeof option == 'string') data[option]()
     })
@@ -21286,13 +21243,6 @@ define("bootstrap-tooltip", ["jquery"], function() {
 });
 }(this));
 
-// Author: Rok Garbas
-// Contact: rok@garbas.si
-// Version: 1.0
-// Description:
-//
-// License:
-//
 // Copyright (C) 2010 Plone Foundation
 //
 // This program is free software; you can redistribute it and/or modify it
@@ -21311,7 +21261,7 @@ define("bootstrap-tooltip", ["jquery"], function() {
 
 if (window.jQuery) {
   define( 'jquery', [], function () {
-    
+    'use strict';
     return window.jQuery;
   } );
 }
@@ -21338,7 +21288,7 @@ require([
   'bootstrap-collapse',
   'bootstrap-tooltip',
 ], function($, registry, Base) {
-  
+  'use strict';
 
   // initialize only if we are in top frame
   if (window.parent === window) {
@@ -21349,7 +21299,19 @@ require([
       }
     });
   }
+
+  // TODO: Needs to be moved to controlpanel js
+  $(document).ready(function() {
+    var cookieNegotiation = (
+      $("#form-widgets-use_cookie_negotiation > input").value === 'selected');
+    if (cookieNegotiation !== true) {
+      $("#formfield-form-widgets-authenticated_users_only").hide();
+    }else{
+      $("#formfield-form-widgets-authenticated_users_only").show();
+    }
+  });
+
 });
 
-define("/Users/nathan/code/fbigov.policy/src/Products.CMFPlone/Products/CMFPlone/static/plone.js", function(){});
+define("/Users/nathan/code/coredev5/src/Products.CMFPlone/Products/CMFPlone/static/plone.js", function(){});
 

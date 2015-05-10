@@ -2,6 +2,10 @@
 <registry>
   <records interface="Products.CMFPlone.interfaces.IEditingSchema"
            prefix="plone" />
+  <records interface="Products.CMFPlone.interfaces.ILanguageSchema"
+           prefix="plone" />
+  <records interface="Products.CMFPlone.interfaces.IFilterSchema"
+           prefix="plone" />
   <records interface="Products.CMFPlone.interfaces.IMaintenanceSchema"
            prefix="plone" />
   <records interface="Products.CMFPlone.interfaces.IMailSchema"
@@ -19,6 +23,8 @@
   <records interface="Products.CMFPlone.interfaces.IMarkupSchema"
            prefix="plone" />
   <records interface="Products.CMFPlone.interfaces.IUserGroupsSettingsSchema"
+           prefix="plone" />
+  <records interface="Products.CMFPlone.interfaces.IImagingSchema"
            prefix="plone" />
   <record interface="Products.ResourceRegistries.interfaces.settings.IResourceRegistriesSettings" field="resourceBundlesForThemes">
     <value purge="false">
@@ -81,7 +87,6 @@
   <records interface="Products.CMFPlone.interfaces.ITinyMCESchema"
            prefix="plone">
     <value key="content_css">++plone++static/components/tinymce-builded/js/tinymce/skins/lightgray/content.min.css</value>
-    <value key="prependToScalePart">/@@images/image/</value>
   </records>
   <record name="plone.resources.development">
     <field type="plone.registry.field.Bool">
@@ -275,16 +280,11 @@
       </value>
   </records>
 
-  <records prefix="plone.resources/domready"
-            interface='Products.CMFPlone.interfaces.IResourceRegistry'>
-      <value key="js">++plone++static/components/domready/ready.js</value>
-  </records>
-
   <records prefix="plone.resources/dropzone"
             interface='Products.CMFPlone.interfaces.IResourceRegistry'>
-      <value key="js">++plone++static/components/dropzone/downloads/dropzone-amd-module.js</value>
+      <value key="js">++plone++static/components/dropzone/dist/dropzone-amd-module.js</value>
       <value key="css">
-        <element>++plone++static/components/dropzone/downloads/css/dropzone.css</element>
+        <element>++plone++static/components/dropzone/dist/dropzone.css</element>
       </value>
   </records>
 
@@ -392,7 +392,11 @@
       <value key="js">++plone++static/components/tinymce-builded/js/tinymce/plugins/advlist/plugin.js</value>
       <value key="deps">tinymce</value>
   </records>
-
+  <records prefix="plone.resources/tinymce-compat3x"
+            interface='Products.CMFPlone.interfaces.IResourceRegistry'>
+      <value key="js">++plone++static/components/tinymce-builded/js/tinymce/plugins/compat3x/plugin.js</value>
+      <value key="deps">tinymce</value>
+  </records>
 
   <records prefix="plone.resources/tinymce-anchor"
             interface='Products.CMFPlone.interfaces.IResourceRegistry'>
@@ -596,6 +600,12 @@
             interface='Products.CMFPlone.interfaces.IResourceRegistry'>
       <value key="js">++plone++static/components/tinymce-builded/js/tinymce/themes/modern/theme.js</value>
       <value key="deps">tinymce</value>
+  </records>
+  <records prefix="plone.resources/tinymce-default-styles"
+            interface='Products.CMFPlone.interfaces.IResourceRegistry'>
+      <value key="css">
+        <element>++plone++static/tinymce-styles.css</element>
+      </value>
   </records>
 
 
@@ -953,13 +963,17 @@
 
       <element key="plone-toolbar-bg">rgba(0,0,0,.9)</element>
       <element key="plone-toolbar-submenu-bg">rgba(20,20,20,.9)</element>
+      <!--
       <element key="plone-toolbar-font-primary">'Roboto Condensed', sans-serif</element>
       <element key="plone-toolbar-font-secundary">'Roboto', sans-serif</element>
+      -->
+      <element key="plone-toolbar-font-primary">sans-serif</element>
+      <element key="plone-toolbar-font-secundary">sans-serif</element>
       <element key="plone-toolbar-separator-color">rgba(255,255,255,.17)</element>
       <element key="plone-toolbar-link">{plone-link-color}</element>
-      <element key="plone-toolbar-text-color">rgba(255,255,255,.9)</element>
-      <element key="plone-toolbar-submenu-text-color">{plone-gray-lighter}</element>
-      <element key="plone-toolbar-submenu-header-color">{plone-gray-light}</element>
+      <element key="plone-toolbar-text-color">rgba(255,255,255,1)</element>
+      <element key="plone-toolbar-submenu-text-color">lighten(#000, 90%)</element>
+      <element key="plone-toolbar-submenu-header-color">lighten(#000, 80%)</element>
       <element key="plone-toolbar-published-color">{plone-link-color}</element>
       <element key="plone-toolbar-draft-color">rgb(250,184,42)</element>
       <element key="plone-toolbar-pending-color">rgb(226,231,33)</element>
@@ -1013,7 +1027,7 @@
     <value key="enabled">True</value>
     <value key="jscompilation">++plone++static/plone-compiled.min.js</value>
     <value key="csscompilation">++plone++static/plone-compiled.css</value>
-    <value key="last_compilation">2014-11-26 00:00:00</value>
+    <value key="last_compilation">2015-05-02 00:00:00</value>
     <value key="depends">plone-logged-in</value>
   </records>
 
@@ -1026,7 +1040,7 @@
     <value key="expression">python: member is not None</value>
     <value key="jscompilation">++plone++static/plone-logged-in-compiled.min.js</value>
     <value key="csscompilation">++plone++static/plone-logged-in-compiled.css</value>
-    <value key="last_compilation">2014-11-26 00:00:00</value>
+    <value key="last_compilation">2015-05-07 00:00:00</value>
   </records>
 
   <records prefix="plone.bundles/plone-legacy"
@@ -1050,7 +1064,7 @@
     <value key="enabled">False</value>
     <value key="jscompilation">++plone++static/resourceregistry-compiled.min.js</value>
     <value key="csscompilation">++plone++static/resourceregistry-compiled.css</value>
-    <value key="last_compilation">2015-02-13 00:00:00</value>
+    <value key="last_compilation">2015-05-01 00:00:00</value>
   </records>
 
 
@@ -1063,7 +1077,7 @@
     </field>
     <value>
       <element key="pickadate">{"selectYears": 200}</element>
-      <element key="modal">{"actionOptions": {"displayInModal": false}}</element>
+      <element key="plone-modal">{"actionOptions": {"displayInModal": false}}</element>
     </value>
   </record>
 

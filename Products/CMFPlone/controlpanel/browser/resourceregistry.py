@@ -154,15 +154,6 @@ class ResourceRegistryControlPanelView(RequireJsView):
         for key in set(rdata.keys()) - set(newdata.keys()):
             del rdata[key]
 
-    def save_development_mode(self):
-        if self.request.form.get('value', '').lower() == 'true':
-            self.registry['plone.resources.development'] = True
-        else:
-            self.registry['plone.resources.development'] = False
-        return json.dumps({
-            'success': True
-        })
-
     def save_registry(self):
         req = self.request
 
@@ -172,6 +163,11 @@ class ResourceRegistryControlPanelView(RequireJsView):
         self.update_registry_collection(
             IBundleRegistry, "plone.bundles",
             json.loads(req.get('bundles')))
+
+        if self.request.form.get('development', '').lower() == 'true':
+            self.registry['plone.resources.development'] = True
+        else:
+            self.registry['plone.resources.development'] = False
 
         # it'd be difficult to know if the legacy bundle settings
         # changed or not so we need to just set the last import date
@@ -322,7 +318,10 @@ class ResourceRegistryControlPanelView(RequireJsView):
         def _read_folder(folder):
             files = []
             for filename in folder.listDirectory():
-                item = folder[filename]
+                try:
+                    item = folder[filename]
+                except NotFound:
+                    continue
                 if folder.isDirectory(filename):
                     files.extend(_read_folder(item))
                 else:
